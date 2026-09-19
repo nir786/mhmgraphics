@@ -1,0 +1,10 @@
+CompileFlags:
+    Add:
+      - -std=c++23
+      - -Xclang
+      - -fmodules
+      - -fprebuilt-module-path=.
+      - -I/home/nir/cpp_graphics/externals
+      - -I/home/nir/cpp_graphics/externals/src
+      - -I/home/nir/cpp_graphics/externals/include
+
