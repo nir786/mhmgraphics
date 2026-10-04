@@ -1,3 +1,7 @@
+
+#include "stb_image.h"
+
+#include "Components.hpp"
 #include <assimp/Importer.hpp>
 #include <assimp/material.h>
 #include <assimp/mesh.h>
@@ -11,7 +15,9 @@
 #include <glm/ext/matrix_clip_space.hpp>
 #include <glm/ext/matrix_transform.hpp>
 #include <glm/ext/vector_float3.hpp>
+#include <glm/ext/vector_float4.hpp>
 #include <glm/glm.hpp>
+#include <glm/gtc/constants.hpp>
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtc/type_ptr.hpp>
 #include <glm/trigonometric.hpp>
@@ -25,14 +31,14 @@
 ///
 ///
 // clang-format off
-#define STB_IMAGE_IMPLEMENTATION
-#include "stb_image.h"
 #include <glad/glad.h>
 #include <GLFW/glfw3.h>
 // glfw
 // clang-format on
 
 #include "Camera.hpp"
+#include "MeshData.hpp"
+#include "Object.hpp"
 #include "Shader.hpp"
 #include <cstring>
 #include <iostream>
@@ -40,6 +46,7 @@
 #include <vector>
 ////
 ///
+#include "Input.hpp"
 
 #define vertShaderSource "/home/nir/cpp_graphics/simpleShade.vert"
 #define fragShaderSource "/home/nir/cpp_graphics/simpleShade.frag"
@@ -49,40 +56,109 @@ void framebuffer_size_callback(GLFWwindow *window, int width, int height) {
   glViewport(0, 0, width, height);
   _width = width;
   _height = height;
-  // glm::ortho(0.0f, float(width), 0.0f, float(height), 0.1f, 100.0f);
 }
-struct Material {
-  glm::vec3 ambient;
-  glm::vec3 diffuse;
-  glm::vec3 specular;
-  float shininess;
-};
-struct MeshGl {
-  GLuint VAO, VBO, EBO;
-  unsigned int EBOSize;
-  Material mmat;
-};
-int main() {
 
-  Assimp::Importer importer;
-  const char *path = "Assets/dragon/fbx/Dragon 2.5_fbx.fbx";
+unsigned int Load_cb_map(std::vector<std::string> faces) {
 
-  const aiScene *scene = nullptr;
-  // clang-format off
-  scene = importer.ReadFile(
-      path,
+  unsigned int textureID;
+  glGenTextures(1, &textureID);
+  glBindTexture(GL_TEXTURE_CUBE_MAP, textureID);
 
-      aiProcess_CalcTangentSpace       | 
-      aiProcess_Triangulate            |
-      aiProcess_JoinIdenticalVertices  | 
-      aiProcess_SortByPType            |
-      aiProcess_GenNormals             );
+  int width, height, nrChannels;
+  for (unsigned int i = 0; i < faces.size(); ++i) {
 
-  // clang-format on
-  if (!scene) {
-    std::cout << importer.GetErrorString() << std::endl;
+    unsigned char *data =
+        stbi_load(faces[i].c_str(), &width, &height, &nrChannels, 0);
+    std::cout << width << " w, " << height << " h, " << nrChannels << " nr"
+              << std::endl;
+    if (data) {
+      glTexImage2D(GL_TEXTURE_CUBE_MAP_POSITIVE_X + i, 0, GL_RGBA, width,
+                   height, 0, GL_RGBA, GL_UNSIGNED_BYTE,
+                   data); // because they're alligned
+
+    } else {
+      std::cout << "Failed to load texture from " << faces[i] << std::endl;
+      stbi_image_free(data);
+      exit(1);
+    }
   }
 
+  glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+  glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+  glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+  glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+  glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_R, GL_CLAMP_TO_EDGE);
+
+  return textureID;
+}
+
+void initSkyBox(GLuint &VAOSkybox) {
+  //..................................................................................................
+
+  // clang-format off
+  std::vector<float> vertSky = {
+            
+// positions          
+    -1.0f,  1.0f, -1.0f,
+    -1.0f, -1.0f, -1.0f,
+     1.0f, -1.0f, -1.0f,
+     1.0f, -1.0f, -1.0f,
+     1.0f,  1.0f, -1.0f,
+    -1.0f,  1.0f, -1.0f,
+
+    -1.0f, -1.0f,  1.0f,
+    -1.0f, -1.0f, -1.0f,
+    -1.0f,  1.0f, -1.0f,
+    -1.0f,  1.0f, -1.0f,
+    -1.0f,  1.0f,  1.0f,
+    -1.0f, -1.0f,  1.0f,
+
+     1.0f, -1.0f, -1.0f,
+     1.0f, -1.0f,  1.0f,
+     1.0f,  1.0f,  1.0f,
+     1.0f,  1.0f,  1.0f,
+     1.0f,  1.0f, -1.0f,
+     1.0f, -1.0f, -1.0f,
+
+    -1.0f, -1.0f,  1.0f,
+    -1.0f,  1.0f,  1.0f,
+     1.0f,  1.0f,  1.0f,
+     1.0f,  1.0f,  1.0f,
+     1.0f, -1.0f,  1.0f,
+    -1.0f, -1.0f,  1.0f,
+
+    -1.0f,  1.0f, -1.0f,
+     1.0f,  1.0f, -1.0f,
+     1.0f,  1.0f,  1.0f,
+     1.0f,  1.0f,  1.0f,
+    -1.0f,  1.0f,  1.0f,
+    -1.0f,  1.0f, -1.0f,
+
+    -1.0f, -1.0f, -1.0f,
+    -1.0f, -1.0f,  1.0f,
+     1.0f, -1.0f, -1.0f,
+     1.0f, -1.0f, -1.0f,
+    -1.0f, -1.0f,  1.0f,
+     1.0f, -1.0f,  1.0f
+  };
+  GLuint  VBOSkybox;
+
+    glGenVertexArrays(1, &VAOSkybox);
+    glBindVertexArray(VAOSkybox);
+    glGenBuffers(1, &VBOSkybox);
+
+    glBindBuffer(GL_ARRAY_BUFFER, VBOSkybox);
+    glBufferData(GL_ARRAY_BUFFER, vertSky.size() * sizeof(float), vertSky.data(),
+                 GL_STATIC_DRAW);
+
+    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float),
+                          (void *)0);
+
+glEnableVertexAttribArray(0);
+  // clang-format on
+}
+
+GLFWwindow *initGLFW() {
   glfwInit();
   glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
   glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3);
@@ -92,14 +168,14 @@ int main() {
   if (window == NULL) {
     std::cerr << "GLFW window wasnt initialized" << std::endl;
     glfwTerminate();
-    return -1;
+    exit(1);
   }
   glfwMakeContextCurrent(window);
   glfwSetFramebufferSizeCallback(window, framebuffer_size_callback);
 
   if (!gladLoadGLLoader((GLADloadproc)glfwGetProcAddress)) {
     std::cout << "Failed to initialize GLAD" << std::endl;
-    return -1;
+    exit(1);
   }
 
   glEnable(GL_DEPTH_TEST);
@@ -108,108 +184,9 @@ int main() {
   glGetIntegerv(GL_MAX_VERTEX_ATTRIBS, &nrAttributes);
   std::cout << "Maximum nr of vertex attributes supported: " << nrAttributes
             << std::endl;
-
-  // glm::ortho(0.0f, 500.0f, 0.0f, 500.0f, 0.1f, 100.0f);
-  // ###### a single object in our program#######
-  //
-
-  std::vector<MeshGl> CarMeshes;
-
-  std::vector<float> carv;
-  std::vector<unsigned int> cari;
-
-  for (unsigned int t = 0; t < scene->mNumMeshes; ++t) {
-    std::vector<float> carv;
-    std::vector<unsigned int> cari;
-
-    GLuint VAO, VBO, EBO;
-
-    aiMesh *mesh = scene->mMeshes[t];
-    aiFace *faces = mesh->mFaces;
-    aiMaterial *mat = scene->mMaterials[mesh->mMaterialIndex];
-
-    for (unsigned int i = 0; i < mesh->mNumVertices; ++i) {
-      aiVector3D &vert3d = mesh->mVertices[i];
-      aiVector3D &normal3d = mesh->mNormals[i];
-
-      carv.push_back(vert3d.x);
-      carv.push_back(vert3d.y);
-      carv.push_back(vert3d.z);
-
-      carv.push_back(normal3d.x);
-      carv.push_back(normal3d.y);
-      carv.push_back(normal3d.z);
-    }
-
-    for (unsigned int i = 0; i < mesh->mNumFaces; ++i) {
-      aiFace &face = mesh->mFaces[i];
-      for (unsigned int c = 0; c < face.mNumIndices; ++c) {
-        cari.push_back(face.mIndices[c]);
-      }
-    }
-    glGenVertexArrays(1, &VAO);
-    glBindVertexArray(VAO);
-    glGenBuffers(1, &VBO);
-
-    glBindBuffer(GL_ARRAY_BUFFER, VBO);
-    glBufferData(GL_ARRAY_BUFFER, carv.size() * sizeof(float), carv.data(),
-                 GL_STATIC_DRAW);
-
-    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 6 * sizeof(float),
-                          (void *)0);
-    glEnableVertexAttribArray(0);
-    glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 6 * sizeof(float),
-                          (void *)(3 * sizeof(float)));
-
-    glEnableVertexAttribArray(1);
-
-    glGenBuffers(1, &EBO);
-    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, EBO);
-    glBufferData(GL_ELEMENT_ARRAY_BUFFER, cari.size() * sizeof(unsigned int),
-                 cari.data(), GL_STATIC_DRAW);
-    MeshGl mmesh;
-    mmesh.EBO = EBO;
-    mmesh.VAO = VAO;
-    mmesh.VBO = VBO;
-
-    aiColor3D ambient;
-    aiColor3D diffuse;
-    aiColor3D specular;
-    float shininess;
-
-    mat->Get(AI_MATKEY_COLOR_AMBIENT, ambient);
-    mat->Get(AI_MATKEY_COLOR_DIFFUSE, diffuse);
-    mat->Get(AI_MATKEY_COLOR_SPECULAR, specular);
-    mat->Get(AI_MATKEY_SHININESS, shininess);
-
-    mmesh.mmat =
-        Material{glm::vec3{ambient.r, ambient.g, ambient.b},
-                 glm::vec3{diffuse.r, diffuse.g, diffuse.b},
-                 glm::vec3{specular.r, specular.g, specular.b}, shininess};
-    //
-    // if (t == 1) {
-    //   mmesh.mmat.ambient = glm::vec3{1.0f, 0.0f, 1.0f};
-    // }
-    //
-    // if (t == 2) {
-    //   mmesh.mmat.ambient = glm::vec3{0.0f, 1.0f, 0.0f};
-    // }
-    // if (t == 3) {
-    //   mmesh.mmat.ambient = glm::vec3{1.0f, 0.25f, 0.0f};
-    // }
-
-    mmesh.EBOSize = cari.size();
-
-    CarMeshes.push_back(mmesh);
-    std::cout << EBO << " ,EBO " << VAO << " ,VAO " << VBO << " ,VBO "
-              << std::endl;
-  }
-
-  GLuint VBO, VAO;
-  // GLuint EBO;
-  glGenVertexArrays(1, &VAO);
-  glBindVertexArray(VAO);
-  // clang-format off
+  return window;
+}
+// clang-format off
   std::vector<float> vertecies = {
       // position                  color                    UV
       // Back face
@@ -261,6 +238,124 @@ int main() {
       -0.5f,  0.5f, -0.5f,       1.0f, 0.0f, 1.0f,        0.0f, 1.0f,   0.0f, 1.0f, 0.0f
 
   };
+// clang-format on
+
+struct GPULight {
+  glm::vec4 position;
+  glm::vec4 color;
+};
+std::vector<GPULight> Construct_LightBuffer(std::vector<Object *> &lights) {
+  std::vector<GPULight> data;
+  for (auto &light : lights) {
+
+    auto &lightdata = light->getComponent<Components::Light>();
+    auto &transform = light->getComponent<Components::Transform>();
+    data.push_back(
+        GPULight{glm::vec4(transform.Position.x, transform.Position.y,
+                           transform.Position.z, 0.0f),
+                 glm::vec4(lightdata.Color.x, lightdata.Color.y,
+                           lightdata.Color.z, lightdata.Intensity)});
+    // xyz | rgb |
+  }
+  return data;
+}
+
+int main() {
+
+  GLFWwindow *window = initGLFW();
+  ////////////////////////////////////////test mesh system/////////////////
+  std::vector<MeshData> RenderQueue;
+
+  Object ambulance = Object("ambulance");
+
+  textureManager manager("Assets/dragon/fbx/textures");
+  manager.loadMore("Assets/Models/FBX format/Textures/");
+  manager.loadMore("Assets/bricks/texture");
+  for (const auto &[key, value] : manager.map) {
+    std::cout << key << std::endl;
+  }
+  MeshData amb =
+      Importer::LoadMesh("Assets/Models/FBX format/ambulance.fbx", manager.map);
+  ambulance.addComponenet<Components::Mesh>(amb);
+  glm::vec3 position = {5.0f, 0.0f, 5.0f};
+  glm::vec3 rotation = {0.0f, 0.0f, 0.0f};
+  glm::vec3 scale = {0.01f, 0.01f, 0.01f};
+  ambulance.addComponenet<Components::Transform>(position, rotation, scale);
+
+  RenderQueue.push_back(amb);
+  //////////////////////////////////////////////////////////////////////////////
+
+  Object PrimitiveCube = Object("cube");
+  MeshData Cube = Importer::LoadPrimitive(Importer::Sphere);
+  PrimitiveCube.addComponenet<Components::Mesh>(Cube);
+
+  glm::vec3 pposition = {0.0f, 0.0f, 0.0f};
+  glm::vec3 rrotation = {0.0f, 90.0f, 0.0f};
+  glm::vec3 sscale = {1.0f, 1.0f, 1.0f};
+  PrimitiveCube.addComponenet<Components::Transform>(pposition, rrotation,
+                                                     sscale);
+
+  ////////////////////////////////////////////////////////////////////////////
+
+  Object dragon = Object("dragon");
+  MeshData drag =
+      Importer::LoadMesh("Assets/dragon/fbx/Dragon 2.5_fbx.fbx", manager.map);
+  dragon.addComponenet<Components::Mesh>(drag);
+
+  glm::vec3 ppposition = {5.0f, 5.0f, 0.0f};
+  glm::vec3 rrrotation = {-90.0f, 0.0f, 0.0f};
+  glm::vec3 ssscale = {0.2f, 0.2f, 0.2f};
+  dragon.addComponenet<Components::Transform>(ppposition, rrrotation, ssscale);
+
+  ///////////////////////////////////////////////////////////////////////
+  Object Girl = Object("FuturisticGirl");
+  MeshData FuturisticGirl =
+      Importer::LoadMesh("Assets/bricks/bricks.obj", manager.map);
+  Girl.addComponenet<Components::Mesh>(drag);
+
+  glm::vec3 girlposition = {-30.0f, 5.0f, 0.0f};
+  glm::vec3 girlrotation = {0.0f, 0.0f, 0.0f};
+  glm::vec3 girlscale = {1.0f, 1.0f, 1.0f};
+  Girl.addComponenet<Components::Transform>(girlposition, girlrotation,
+                                            girlscale);
+
+  //////////////////////////////////////////////////////////////////////////
+
+  Object LightSource_1 = Object("lightsource sphere");
+  MeshData LightSource_M = Importer::LoadPrimitive(Importer::Sphere);
+  LightSource_1.addComponenet<Components::Mesh>(Cube);
+
+  glm::vec3 Light_P_1 = {15.0f, 10.0f, 0.0f};
+  glm::vec3 Light_R_1 = {0.0f, 0.0f, 0.0f};
+  glm::vec3 Light_S_1 = {2.0f, 2.0f, 2.0f};
+  LightSource_1.addComponenet<Components::Transform>(Light_P_1, Light_R_1,
+                                                     Light_S_1);
+
+  LightSource_1.addComponenet<Components::Light>(true, Components::Point, 1.0f,
+                                                 glm::vec3(1.0f, 0.1f, 0.5f));
+  /////////////////////////////////////////////////////////////////////////////////////////
+
+  //////////////////////////////////////////////////////////////////////////
+
+  Object LightSource_2 = Object("lightsource sphere 2 ");
+  MeshData LightSource_M_2 = Importer::LoadPrimitive(Importer::Sphere);
+  LightSource_2.addComponenet<Components::Mesh>(Cube);
+
+  glm::vec3 Light_P_2 = {0.0f, 12.0f, 20.0f};
+  glm::vec3 Light_R_2 = {0.0f, 0.0f, 0.0f};
+  glm::vec3 Light_S_2 = {3.0f, 3.0f, 3.0f};
+  LightSource_2.addComponenet<Components::Transform>(Light_P_2, Light_R_2,
+                                                     Light_S_2);
+
+  LightSource_2.addComponenet<Components::Light>(true, Components::Point, 1.0f,
+                                                 glm::vec3(0.0f, 0.3f, 1.0f));
+  /////////////////////////////////////////////////////////////////////////////////////////
+
+  GLuint VBO, VAO;
+  // GLuint EBO;
+  glGenVertexArrays(1, &VAO);
+  glBindVertexArray(VAO);
+  // clang-format off
 
   // clang-format on
   glGenBuffers(1, &VBO);
@@ -269,12 +364,6 @@ int main() {
   glBufferData(GL_ARRAY_BUFFER, vertecies.size() * sizeof(float),
                vertecies.data(), GL_STATIC_DRAW);
 
-  // glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, EBO);
-  // glBufferData(GL_ELEMENT_ARRAY_BUFFER, indices.size() * sizeof(unsigned
-  // int),
-  //              indices.data(), GL_STATIC_DRAW);
-
-  //
   glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 11 * sizeof(float),
                         (void *)0);
   glEnableVertexAttribArray(0);
@@ -316,6 +405,8 @@ int main() {
   Shader sh = Shader(fragShaderSource, vertShaderSource);
   Shader csh = Shader("/home/nir/cpp_graphics/shadercar.frag",
                       "/home/nir/cpp_graphics/shadercar.vert");
+  Shader phongshaderbase = Shader("/home/nir/cpp_graphics/shaderphong.frag",
+                                  "/home/nir/cpp_graphics/shaderphong.vert");
 
   std::string aAlpha = "aAlpha";
   std::string aTexture1 = "Texture1";
@@ -349,75 +440,45 @@ int main() {
   //
   // Texture loading ...
 
-  stbi_set_flip_vertically_on_load(true);
-  unsigned int texture;
-  glGenTextures(1, &texture);
-  glBindTexture(GL_TEXTURE_2D, texture);
-  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
-  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
-  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+  ////.........................................................................
+  //..................................................................................................
+  GLuint VAOSkybox;
+  stbi_set_flip_vertically_on_load(false);
+  std::vector<std::string> faces = {
+      "sky_12_cubemap_2k/px.png", "sky_12_cubemap_2k/nx.png",
+      "sky_12_cubemap_2k/py.png", "sky_12_cubemap_2k/ny.png",
+      "sky_12_cubemap_2k/pz.png", "sky_12_cubemap_2k/nz.png"};
 
-  int width, height, nrChannels;
-  unsigned char *data = stbi_load("/home/nir/cpp_graphics/container.jpg",
-                                  &width, &height, &nrChannels, 0);
-  if (data) {
+  unsigned int cubemapTexture = Load_cb_map(faces);
 
-    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, width, height, 0, GL_RGB,
-                 GL_UNSIGNED_BYTE, data);
+  Shader skyboxSh = Shader("skybox.frag", "skybox.vert");
+  initSkyBox(VAOSkybox);
 
-    glGenerateMipmap(GL_TEXTURE_2D);
-  } else {
-    std::cout << "Failed to load texture" << std::endl;
-  }
-  stbi_image_free(data);
+  // clang-format on
 
-  unsigned int texture2;
-  glGenTextures(1, &texture2);
-  glBindTexture(GL_TEXTURE_2D, texture2);
-  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
-  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
-  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER,
-                  GL_LINEAR_MIPMAP_LINEAR);
-  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+  //******************************SKYBOX*****************************************************
+  /////////////////////////////light buffer setup
+  GLuint LightmapSSBO;
 
-  data = stbi_load("/home/nir/cpp_graphics/awesomeface.png", &width, &height,
-                   &nrChannels, 0);
-  if (data) {
+  std::vector<Object *> objectbuff;
+  objectbuff.push_back(&LightSource_1);
+  objectbuff.push_back(&LightSource_2);
+  std::vector<GPULight> lightmapsdata = Construct_LightBuffer(objectbuff);
+  glGenBuffers(1, &LightmapSSBO);
+  glBindBuffer(GL_SHADER_STORAGE_BUFFER, LightmapSSBO);
+  glBufferData(GL_SHADER_STORAGE_BUFFER,
+               lightmapsdata.size() * sizeof(GPULight), lightmapsdata.data(),
+               GL_DYNAMIC_DRAW);
+  glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 0, LightmapSSBO);
 
-    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, width, height, 0, GL_RGBA,
-                 GL_UNSIGNED_BYTE, data);
+  /////////////////////////////////////////////////////////////////////////////////////////////
 
-    glGenerateMipmap(GL_TEXTURE_2D);
-  } else {
-    std::cout << "Failed to load texture" << std::endl;
-  }
-  stbi_image_free(data);
   sh.use();
-  glActiveTexture(GL_TEXTURE0);
-  glBindTexture(GL_TEXTURE_2D, texture);
 
-  glActiveTexture(GL_TEXTURE1);
-  glBindTexture(GL_TEXTURE_2D, texture2);
-
-  sh.setInt(aTexture1, 0);
-  sh.setInt(aTexture2, 1);
-
-  float BlendValue = 0.5f;
-
-  // glm::mat4 trans = glm::mat4(2.0f);
-  // trans = glm::rotate(trans, glm::radians(90.0f), glm::vec3(0.0f,
-  // 0.0f, 1.0f)); trans = glm::scale(trans, glm::vec3(0.5f, 0.5f, 0.5f));
-  //
-  // sh.setMat4(aTransform, trans);
-  //
-
-  double oldx, oldy;
-
-  glfwGetCursorPos(window, &oldx, &oldy);
+  sh.setInt(aTexture1.c_str(), 0);
+  sh.setInt(aTexture2.c_str(), 1);
 
   Camera c;
-  double newx, newy;
 
   glm::vec3 F{0.0f, 0.0f, -1.0f};
   glm::vec3 U{0.0f, 1.0f, 0.0f};
@@ -434,89 +495,26 @@ int main() {
   float lightyy = 15.0f;
   float lightzz = 30.0f;
 
+  glm::vec3 static_light{0.0f, 20.0f, 0.0f};
+  glEnable(GL_DEPTH_TEST);
+  //  glDepthMask(GL_FALSE);
+  glDepthFunc(GL_LEQUAL);
+
+  InputManager input = InputManager(window);
+
   while (!glfwWindowShouldClose(window)) {
 
-    glfwGetCursorPos(window, &newx, &newy);
+    lightmapsdata = Construct_LightBuffer(objectbuff);
+    glBindBuffer(GL_SHADER_STORAGE_BUFFER, LightmapSSBO);
+    glBufferSubData(GL_SHADER_STORAGE_BUFFER, 0,
+                    lightmapsdata.size() * sizeof(GPULight),
+                    lightmapsdata.data());
 
-    if (glfwGetKey(window, GLFW_KEY_M) == GLFW_PRESS) {
-
-      if (state == 0) {
-        glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
-        state = 1;
-      } else if (state == 1) {
-        glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_NORMAL);
-        state = 0;
-      }
-    }
-
-    if (glfwGetKey(window, GLFW_KEY_Q) == GLFW_PRESS) {
-      glfwSetWindowShouldClose(window, true);
-    }
-
-    if (glfwGetKey(window, GLFW_KEY_Z) == GLFW_PRESS) {
-      BlendValue += 0.01f;
-      std::cout << " increasing " << BlendValue << std::endl;
-    }
-
-    if (glfwGetKey(window, GLFW_KEY_X) == GLFW_PRESS) {
-
-      BlendValue -= 0.01f;
-
-      std::cout << " Decreasing " << BlendValue << std::endl;
-    }
-
-    if (glfwGetKey(window, GLFW_KEY_W) == GLFW_PRESS) {
-
-      P += F * 0.1f;
-      c.SetPosition(P);
-      std::cout << " increasing " << BlendValue << std::endl;
-    }
-
-    if (glfwGetKey(window, GLFW_KEY_S) == GLFW_PRESS) {
-
-      P -= F * 0.1f;
-
-      c.SetPosition(P);
-      std::cout << " Decreasing " << BlendValue << std::endl;
-    }
-
-    float deltax = float(newx - oldx);
-    float deltay = float(newy - oldy);
-    deltax *= 0.001f;
-    deltay *= 0.001f;
-    //
-    // std::cout << "Theta x:=" << deltax << std::endl;
-    // std::cout << "Theta y:=" << deltay << std::endl;
-    //
-    // if (deltay != 0) {
-    //   exit(1);
-    // }
-    Cluster rot = c.RotationAngles(deltax, deltay);
-    //
-    // std::cout << "rotation:=(" << rot.Ax.x << "," << rot.Ax.y << "," <<
-    // rot.Ax.z
-    //           << ")" << std::endl;
-    //
-    // std::cout << "rotation:=(" << rot.Ay.x << "," << rot.Ay.y << "," <<
-    // rot.Ay.z
-    //           << ")" << std::endl;
-    c.RotationQauaterion({deltax, deltay}, rot, F, U, R);
-    // std::cout << "F - rotation:=(" << F.x << "," << F.y << "," << F.z << ")"
-    //           << std::endl;
-    // std::cout << "U - rotation:=(" << U.x << "," << U.y << "," << U.z << ")"
-    //           << std::endl;
-
-    oldx = newx;
-    oldy = newy;
-
+    ////////////lightmap- pass////////////////////////////////////////////
+    input.movement_early(c, P, F, R, U);
+    ///////////movement- ////////////////////////////////////////////////
     glClearColor(0.2f, 0.2f, 0.2f, 1.0f);
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-
-    glActiveTexture(GL_TEXTURE0);
-    glBindTexture(GL_TEXTURE_2D, texture);
-
-    glActiveTexture(GL_TEXTURE1);
-    glBindTexture(GL_TEXTURE_2D, texture2);
 
     sh.use();
     float timeValue = glfwGetTime() * 0.001f;
@@ -549,20 +547,14 @@ int main() {
       model = glm::translate(model,
                              glm::vec3(0.5f, 1.0f - (float(i) * 1.0f), 0.0f));
 
-      //
-      // trans = glm::translate(trans, glm::vec3(0.1f, -0.1f, 0.0f));
-      // trans = glm::rotate(trans, timeValue, glm::vec3(0.0f, 0.0f, 1.0f));
-      // sh.setMat4(aTransform, trans);
-      //
-
       glm::vec3 model_pos_temp{0.5f, 1.0f - float(i), 0.0f};
-      sh.setInt(aLightObject, 0);
+      sh.setInt(aLightObject.c_str(), 0);
       sh.setMat4(aModel, model);
       sh.setMat4(aView, view);
       sh.setMat4(aProjection, projection);
 
       sh.setFloat(aAlpha, alphaValue);
-      sh.setFloat(aBlend, BlendValue);
+      sh.setFloat(aBlend, input.BlendValue);
       sh.setVec3(aLightSource, lightProj);
       glm::vec3 c_pos = c.getPosition();
       sh.setVec3(aViewPos, c_pos);
@@ -571,7 +563,6 @@ int main() {
       /// Scenelight drawin
       view = c.GetViewMatrix(F, U, P);
       glBindVertexArray(VAO);
-      // glDrawElement(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
       glDrawArrays(GL_TRIANGLES, 0, 36);
       glBindVertexArray(0);
     }
@@ -588,18 +579,19 @@ int main() {
     // trans = glm::translate(trans, glm::vec3(0.1f, -0.1f, 0.0f));
     // trans = glm::rotate(trans, timeValue, glm::vec3(0.0f, 0.0f, 1.0f));
     // sh.setMat4(aTransform, trans);
-    sh.setInt(aLightObject, 1);
+    sh.setInt(aLightObject.c_str(), 1);
     sh.setMat4(aModel, modelLight);
     sh.setMat4(aView, view);
     sh.setMat4(aProjection, projection);
 
     sh.setFloat(aAlpha, alphaValue);
-    sh.setFloat(aBlend, BlendValue);
+    sh.setFloat(aBlend, input.BlendValue);
 
     glBindVertexArray(VAOLight);
     // glDrawElement(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
     glDrawArrays(GL_TRIANGLES, 0, 36);
     glBindVertexArray(0);
+
     ///////////////////////////////////////////////////////////////////
     ///
     ///
@@ -628,23 +620,190 @@ int main() {
     csh.setMat4(aProjection, projection);
     glm::vec3 lightloc = glm::vec3(lightxx, lightyy, lightzz);
     csh.setVec3(aLightLoc, lightloc);
+    /////////////////////////////////////////////////////////////////////////////////////////////////
+    phongshaderbase.use();
 
-    for (int i = 0; i < CarMeshes.size(); ++i) {
-      csh.setVec3(aAmbient, CarMeshes[i].mmat.ambient);
-      csh.setVec3(aDiffuse, CarMeshes[i].mmat.diffuse);
-      csh.setVec3(aSpecular, CarMeshes[i].mmat.specular);
-      csh.setFloat(aShine, CarMeshes[i].mmat.shininess);
+    glBindVertexArray(amb.VAO);
+    auto &transform = ambulance.getComponent<Components::Transform>();
+    glm::mat4 ambmodel = glm::mat4(1.0f);
+    ambmodel = glm::translate(ambmodel, transform.Position);
+    ambmodel *= glm::mat4_cast(glm::quat(glm::radians(transform.Rotation)));
+    ambmodel = glm::scale(ambmodel, transform.Scale);
 
-      glBindVertexArray(CarMeshes[i].VAO);
-      glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
-      glDrawElements(GL_TRIANGLES, CarMeshes[i].EBOSize, GL_UNSIGNED_INT,
-                     nullptr);
+    phongshaderbase.setInt("lightCount", 2);
+    phongshaderbase.setMat4(aModel, ambmodel);
+    phongshaderbase.setMat4(aView, view);
+    phongshaderbase.setMat4(aProjection, projection);
+    phongshaderbase.setVec3(aLightLoc, static_light);
+
+    for (auto &sub : amb.submeshes) {
+      glActiveTexture(GL_TEXTURE0);
+      glBindTexture(GL_TEXTURE_2D, sub.tex.BindingID);
+      phongshaderbase.setInt("tex", 0);
+
+      phongshaderbase.setVec3(aAmbient, sub.mat.ambient);
+      phongshaderbase.setVec3(aDiffuse, sub.mat.diffuse);
+      phongshaderbase.setVec3(aSpecular, sub.mat.specular);
+      phongshaderbase.setFloat(aShine, sub.mat.shininess);
+
+      glDrawElements(
+          GL_TRIANGLES, static_cast<GLsizei>(sub.indexCount), GL_UNSIGNED_INT,
+          reinterpret_cast<void *>(sub.indexOffset * sizeof(unsigned int)));
     }
-    // glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
-    // glDrawElements(GL_TRIANGLES, cari.size(), GL_UNSIGNED_INT, nullptr);
-    // glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
 
     glBindVertexArray(0);
+    ////////////////////////////////////////////////////////////////////////////////////////////
+
+    csh.use();
+    glBindVertexArray(Cube.VAO);
+    auto &ttransform = PrimitiveCube.getComponent<Components::Transform>();
+    glm::mat4 cubemodel = glm::mat4(1.0f);
+    cubemodel = glm::translate(cubemodel, ttransform.Position);
+    cubemodel *= glm::mat4_cast(glm::quat(glm::radians(ttransform.Rotation)));
+    cubemodel = glm::scale(cubemodel, ttransform.Scale);
+
+    csh.setMat4(aModel, cubemodel);
+    csh.setMat4(aView, view);
+    csh.setMat4(aProjection, projection);
+    csh.setVec3(aLightLoc, lightloc);
+    glm::vec3 amb = glm::vec3(0.10f, 0.02f, 0.02f);
+    glm::vec3 diff = glm::vec3(0.80f, 0.15f, 0.10f);
+    glm::vec3 spec = glm::vec3(1.00f, 1.00f, 1.00f);
+    csh.setVec3(aAmbient, amb);
+    csh.setVec3(aDiffuse, diff);
+    csh.setVec3(aSpecular, spec);
+    csh.setFloat(aShine, 32.0f);
+    glDrawArrays(GL_TRIANGLES, 0, Cube.verts_normals.size() / 6);
+
+    ///////////////////////////////////////////////////////////////////////////////////////////
+
+    glBindVertexArray(0);
+    //////////////////////////////////////////////////////////////////////////////////////////////////
+    phongshaderbase.use();
+    glBindVertexArray(drag.VAO);
+    auto &tttransform = dragon.getComponent<Components::Transform>();
+    glm::mat4 dragonmodel = glm::mat4(1.0f);
+    dragonmodel = glm::translate(dragonmodel, tttransform.Position);
+    dragonmodel *=
+        glm::mat4_cast(glm::quat(glm::radians(tttransform.Rotation)));
+    dragonmodel = glm::scale(dragonmodel, tttransform.Scale);
+
+    phongshaderbase.setMat4(aModel, dragonmodel);
+    phongshaderbase.setMat4(aView, view);
+    phongshaderbase.setMat4(aProjection, projection);
+    phongshaderbase.setVec3(aLightLoc, static_light);
+
+    for (auto &sub : drag.submeshes) {
+      glActiveTexture(GL_TEXTURE0);
+      glBindTexture(GL_TEXTURE_2D, sub.tex.BindingID);
+      phongshaderbase.setInt("tex", 0);
+      phongshaderbase.setVec3(aAmbient, sub.mat.ambient);
+      phongshaderbase.setVec3(aDiffuse, sub.mat.diffuse);
+      phongshaderbase.setVec3(aSpecular, sub.mat.specular);
+      phongshaderbase.setFloat(aShine, sub.mat.shininess);
+
+      glDrawElements(
+          GL_TRIANGLES, static_cast<GLsizei>(sub.indexCount), GL_UNSIGNED_INT,
+          reinterpret_cast<void *>(sub.indexOffset * sizeof(unsigned int)));
+    }
+    glBindVertexArray(0);
+    /////////////////////////////////////////////////////////////////////////////////////
+
+    //////////////////////////////////////////////////////////////////////////////////////////////////
+    phongshaderbase.use();
+    glBindVertexArray(FuturisticGirl.VAO);
+    auto &girltransform = Girl.getComponent<Components::Transform>();
+    glm::mat4 girlmodel = glm::mat4(1.0f);
+    girlmodel = glm::translate(girlmodel, girltransform.Position);
+    girlmodel *=
+        glm::mat4_cast(glm::quat(glm::radians(girltransform.Rotation)));
+    girlmodel = glm::scale(girlmodel, girltransform.Scale);
+
+    phongshaderbase.setInt("lightCount", 2);
+    phongshaderbase.setMat4(aModel, girlmodel);
+    phongshaderbase.setMat4(aView, view);
+    phongshaderbase.setMat4(aProjection, projection);
+    phongshaderbase.setVec3(aLightLoc, static_light);
+
+    for (auto &sub : FuturisticGirl.submeshes) {
+      glActiveTexture(GL_TEXTURE0);
+      glBindTexture(GL_TEXTURE_2D, sub.tex.BindingID);
+      phongshaderbase.setInt("tex", 0);
+      phongshaderbase.setVec3(aAmbient, sub.mat.ambient);
+      phongshaderbase.setVec3(aDiffuse, sub.mat.diffuse);
+      phongshaderbase.setVec3(aSpecular, sub.mat.specular);
+      phongshaderbase.setFloat(aShine, sub.mat.shininess);
+
+      glDrawElements(
+          GL_TRIANGLES, static_cast<GLsizei>(sub.indexCount), GL_UNSIGNED_INT,
+          reinterpret_cast<void *>(sub.indexOffset * sizeof(unsigned int)));
+    }
+
+    glBindVertexArray(0);
+    ///////////////light rendering///////////////////////////////////
+    csh.use();
+    glBindVertexArray(LightSource_M.VAO);
+    auto &Lc1_transform = LightSource_1.getComponent<Components::Transform>();
+    glm::mat4 light_model_1 = glm::mat4(1.0f);
+    light_model_1 = glm::translate(light_model_1, Lc1_transform.Position);
+    light_model_1 *=
+        glm::mat4_cast(glm::quat(glm::radians(Lc1_transform.Rotation)));
+    light_model_1 = glm::scale(light_model_1, Lc1_transform.Scale);
+
+    csh.setMat4(aModel, light_model_1);
+    csh.setMat4(aView, view);
+    csh.setMat4(aProjection, projection);
+    csh.setVec3(aLightLoc, lightloc);
+    glm::vec3 lcamb_1 = glm::vec3(0.10f, 0.02f, 0.02f);
+    glm::vec3 lcdiff_1 = glm::vec3(0.80f, 0.15f, 0.10f);
+    glm::vec3 lcspec_1 = glm::vec3(1.00f, 1.00f, 1.00f);
+    csh.setVec3(aAmbient, lcamb_1);
+    csh.setVec3(aDiffuse, lcdiff_1);
+    csh.setVec3(aSpecular, lcspec_1);
+    csh.setFloat(aShine, 50.0f);
+    glDrawArrays(GL_TRIANGLES, 0, Cube.verts_normals.size() / 6);
+
+    glBindVertexArray(0);
+
+    csh.use();
+    ///////////////light rendering///////////////////////////////////
+    glBindVertexArray(LightSource_M_2.VAO);
+    auto &Lc2_transform = LightSource_2.getComponent<Components::Transform>();
+    glm::mat4 Lc2_model = glm::mat4(1.0f);
+    Lc2_model = glm::translate(Lc2_model, Lc2_transform.Position);
+    Lc2_model *=
+        glm::mat4_cast(glm::quat(glm::radians(Lc2_transform.Rotation)));
+    Lc2_model = glm::scale(Lc2_model, Lc2_transform.Scale);
+
+    csh.setMat4(aModel, Lc2_model);
+    csh.setMat4(aView, view);
+    csh.setMat4(aProjection, projection);
+    csh.setVec3(aLightLoc, lightloc);
+    glm::vec3 lc2amb = glm::vec3(0.10f, 0.02f, 0.02f);
+    glm::vec3 lc2diff = glm::vec3(0.80f, 0.15f, 0.10f);
+    glm::vec3 lc2spec = glm::vec3(1.00f, 1.00f, 1.00f);
+    csh.setVec3(aAmbient, lc2amb);
+    csh.setVec3(aDiffuse, lc2diff);
+    csh.setVec3(aSpecular, lc2spec);
+    csh.setFloat(aShine, 100.0f);
+    glDrawArrays(GL_TRIANGLES, 0, Cube.verts_normals.size() / 6);
+    //////////////////////////////////////////////////////////////////////////////////////////////////
+    glDepthMask(GL_FALSE);
+    skyboxSh.use();
+
+    glm::mat4 SkyView = glm::mat4(glm::mat3(view));
+    skyboxSh.setMat4(aProjection, projection);
+    skyboxSh.setMat4(aView, SkyView);
+
+    glBindVertexArray(VAOSkybox);
+
+    glActiveTexture(GL_TEXTURE0);
+    glBindTexture(GL_TEXTURE_CUBE_MAP, cubemapTexture);
+    glUniform1i(glGetUniformLocation(skyboxSh.ID, "skybox"), 0);
+
+    glDrawArrays(GL_TRIANGLES, 0, 36);
+    glBindVertexArray(0);
+    glDepthMask(GL_TRUE);
 
     glfwSwapBuffers(window);
     glfwPollEvents();
@@ -652,11 +811,6 @@ int main() {
 
   glDeleteVertexArrays(1, &VAO);
   glDeleteBuffers(1, &VBO);
-
-  for (int i = 0; i < CarMeshes.size(); i++) {
-    glDeleteVertexArrays(1, &CarMeshes[i].VAO);
-    glDeleteBuffers(1, &CarMeshes[i].VBO);
-  }
 
   // glDeleteBuffers(1, &EBO);
   glfwDestroyWindow(window);

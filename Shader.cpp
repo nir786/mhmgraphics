@@ -7,8 +7,8 @@ void Shader::setBool(std::string &Uniform_name, bool value) const {
   int uniformBoolLocation = glGetUniformLocation(ID, Uniform_name.c_str());
   glUniform1i(uniformBoolLocation, value);
 }
-void Shader::setInt(std::string &Uniform_name, int value) const {
-  int uniformIntLocation = glGetUniformLocation(ID, Uniform_name.c_str());
+void Shader::setInt(const char *Uniform_name, int value) const {
+  int uniformIntLocation = glGetUniformLocation(ID, Uniform_name);
   glUniform1i(uniformIntLocation, value);
 }
 void Shader::setFloat(std::string &Uniform_name, float value) const {

@@ -24,7 +24,7 @@ void Camera::RotationQauaterion(const glm::vec2 &angles, Cluster &rot,
   glm::quat q = qx * qy;
 
   F = q * F;
-  U = q * U;
+  //  U = q * U;
   R = q * R;
 }
 
