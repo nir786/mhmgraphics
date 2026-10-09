@@ -1,76 +1,63 @@
 #pragma once
 // clang-format off
-#include <filesystem>
+
+#include <string_view>
 #include <unordered_map>
 #include <glad/glad.h>
 #include <GLFW/glfw3.h>
+#include <glm/glm.hpp>
 
 #include "stb_image.h"
+#include <string>
+
+
+using Color = std::array<unsigned char , 4>;
+constexpr Color BG_TEX_DEFAULT {255 ,0   ,255 ,255}; 
+constexpr Color BG_TEX_WHITE   {255 ,255 ,255 ,255}; 
+constexpr Color BG_TEX_GRAY    {128 ,128 ,128 ,255}; 
+constexpr Color BG_TEX_BLACK   {0   ,0   ,0   ,255}; 
+constexpr Color BG_TEX_MAGENTA {255 ,0   ,255 ,255}; 
+constexpr Color BG_TEX_RED     {255 ,0   ,0   ,255}; 
+#define BF_WHITE   "white" 
+#define BF_GRAY    "gray" 
+#define BF_BLACK   "black" 
+#define BF_MAGENTA "magenta" 
+#define BF_RED     "red"
+#define BF_DEFAULT "defualt"
+
+#define Picker (color , name) 
+
+
+
+
+
+
+
+
+
 // glfw
 // clang-format on
 
-#include <iostream>
-#include <string>
 class Texture {
 public:
   GLuint textureID;
+  std::string keyName;
 };
+
 class textureManager {
 public:
+  textureManager() { LoadDefault(BG_TEX_DEFAULT, BF_DEFAULT); }
+
   std::unordered_map<std::string, Texture> map;
+  void LoadDefault(const Color &color, const char *name);
 
-  textureManager(const char *path) {
-
-    stbi_set_flip_vertically_on_load(true);
-    for (const auto &entry : std::filesystem::directory_iterator(path)) {
-      unsigned int textureID;
-      glGenTextures(1, &textureID);
-      glBindTexture(GL_TEXTURE_2D, textureID);
-      int width, height, nrChannels;
-      std::string ppath = entry.path().string();
-      unsigned char *data =
-          stbi_load(ppath.c_str(), &width, &height, &nrChannels, 0);
-      unsigned int channel;
-      switch (nrChannels) {
-      case 1:
-        channel = GL_RED;
-        break;
-      case 2:
-        channel = GL_RG;
-        break;
-      case 3:
-        channel = GL_RGB;
-        break;
-      case 4:
-        channel = GL_RGBA;
-        break;
-      }
-
-      if (data) {
-        glTexImage2D(GL_TEXTURE_2D, 0, channel, width, height, 0, channel,
-                     GL_UNSIGNED_BYTE, data);
-        std::string key = entry.path().parent_path().filename().string() +
-                          "\\" + entry.path().filename().string();
-
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-
-        stbi_image_free(data);
-
-        Texture tex;
-        tex.textureID = textureID;
-
-        map.insert({key, tex});
-
-      } else {
-        std::cout << "Failed to load texture path:" << entry.path()
-                  << std::endl;
-
-        exit(1);
-      }
+  const Texture &getTexture(std::string_view key) {
+    auto it = map.find(std::string(key));
+    if (it != map.end()) {
+      return it->second;
+    } else {
+      auto it = map.find(BF_DEFAULT);
+      return it->second;
     }
   }
-  void loadMore(const char *path);
 };

@@ -13,6 +13,8 @@
 
 // clang-format on
 #include "MeshData.hpp"
+#include "texture.hpp"
+#include <memory>
 
 namespace Components {
 enum LightType { Point, Ortho, Projection };
@@ -21,6 +23,12 @@ class Components {
 public:
   virtual ~Components() = default;
 };
+class Tex : public Components {
+public:
+  const Texture &tex;
+  Tex(const Texture &_tex) : tex(_tex) {};
+};
+
 class Transform : public Components {
 public:
   glm::vec3 Position;
@@ -59,6 +67,7 @@ public:
   GLuint VAO, VBO;
   GLuint TextureID;
   CubeMap(std::vector<std::string> faces) {
+    stbi_set_flip_vertically_on_load(false);
     unsigned int textureID;
     glGenTextures(1, &textureID);
     glBindTexture(GL_TEXTURE_CUBE_MAP, textureID);

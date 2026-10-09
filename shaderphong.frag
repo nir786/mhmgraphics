@@ -25,7 +25,7 @@ uniform int lightCount;
 
 
 uniform Material material; 
-uniform vec3 lightLoc;
+//uniform vec3 lightLoc;
 uniform sampler2D tex ; 
 
 

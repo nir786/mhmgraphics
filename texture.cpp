@@ -1,54 +1,16 @@
 #include "texture.hpp"
 
-void textureManager::loadMore(const char *path) {
+void textureManager::LoadDefault(const Color &color, const char *name) {
 
-  stbi_set_flip_vertically_on_load(true);
-  for (const auto &entry : std::filesystem::directory_iterator(path)) {
-    unsigned int textureID;
-    glGenTextures(1, &textureID);
-    glBindTexture(GL_TEXTURE_2D, textureID);
-    int width, height, nrChannels;
-    std::string ppath = entry.path().string();
-    unsigned char *data =
-        stbi_load(ppath.c_str(), &width, &height, &nrChannels, 0);
-    unsigned int channel;
-    switch (nrChannels) {
-    case 1:
-      channel = GL_RED;
-      break;
-    case 2:
-      channel = GL_RG;
-      break;
-    case 3:
-      channel = GL_RGB;
-      break;
-    case 4:
-      channel = GL_RGBA;
-      break;
-    }
+  Texture texture;
+  glGenTextures(1, &texture.textureID);
+  glBindTexture(GL_TEXTURE_2D, texture.textureID);
+  glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, 1, 1, 0, GL_RGBA, GL_UNSIGNED_BYTE,
+               color.data());
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
 
-    if (data) {
-      glTexImage2D(GL_TEXTURE_2D, 0, channel, width, height, 0, channel,
-                   GL_UNSIGNED_BYTE, data);
-      std::string key = entry.path().parent_path().filename().string() + "\\" +
-                        entry.path().filename().string();
-
-      glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
-      glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
-      glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-      glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-
-      stbi_image_free(data);
-
-      Texture tex;
-      tex.textureID = textureID;
-
-      map.insert({key, tex});
-
-    } else {
-      std::cout << "Failed to load texture path:" << entry.path() << std::endl;
-
-      exit(1);
-    }
-  }
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
+  map.emplace(std::string(name), texture);
 }
