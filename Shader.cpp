@@ -11,8 +11,8 @@ void Shader::setInt(const char *Uniform_name, int value) const {
   int uniformIntLocation = glGetUniformLocation(ID, Uniform_name);
   glUniform1i(uniformIntLocation, value);
 }
-void Shader::setFloat(std::string &Uniform_name, float value) const {
-  int uniformFloatLocation = glGetUniformLocation(ID, Uniform_name.c_str());
+void Shader::setFloat(const char *Uniform_name, float value) const {
+  int uniformFloatLocation = glGetUniformLocation(ID, Uniform_name);
   glUniform1f(uniformFloatLocation, value);
 }
 void Shader::setMat4(std::string &Uniform_name, glm::mat4 &value) const {

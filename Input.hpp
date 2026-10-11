@@ -19,4 +19,5 @@ class InputManager {
     glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
   };
   void movement_early(Camera &c, glm::vec3 &P, glm::vec3 &F, glm::vec3 &R,glm::vec3 &U );
+  void exposure_m(float & exp); 
 };

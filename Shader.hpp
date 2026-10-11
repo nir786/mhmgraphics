@@ -96,7 +96,7 @@ public:
   void use();
   void setBool(std::string &Uniform_name, bool value) const;
   void setInt(const char *Uniform_name, int value) const;
-  void setFloat(std::string &Uniform_name, float value) const;
+  void setFloat(const char *Uniform_name, float value) const;
   void setMat4(std::string &Uniform_name, glm::mat4 &value) const;
   void setVec3(std::string &Uniform_name, glm::vec3 &value) const;
 };

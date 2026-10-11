@@ -63,3 +63,13 @@ void InputManager::movement_early(Camera &c, glm::vec3 &P, glm::vec3 &F,
   oldx = newx;
   oldy = newy;
 }
+
+void InputManager::exposure_m(float &exp) {
+
+  if (glfwGetKey(window, GLFW_KEY_E) == GLFW_PRESS) {
+    exp += 0.01f;
+  }
+  if (glfwGetKey(window, GLFW_KEY_R) == GLFW_PRESS) {
+    exp -= 0.01f;
+  }
+}

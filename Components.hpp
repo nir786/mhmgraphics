@@ -17,7 +17,7 @@
 #include <memory>
 
 namespace Components {
-enum LightType { Point, Ortho, Projection };
+enum LightType { Point = 0, Ortho = 1, SpotLight = 2 };
 
 class Components {
 public:
@@ -54,10 +54,12 @@ public:
   LightType Type;
   float Intensity;
   glm::vec3 Color;
+  glm::vec3 direction;
+  float cutoff;
   Light(bool should_cast, LightType _type, float _intensity,
-        glm::vec3 light_color)
+        glm::vec3 light_color, glm::vec3 _direction, float _cutoff)
       : CastShadows(should_cast), Type(_type), Intensity(_intensity),
-        Color(light_color) {
+        Color(light_color), direction(_direction), cutoff(_cutoff) {
 
         };
 };
@@ -68,9 +70,8 @@ public:
   GLuint TextureID;
   CubeMap(std::vector<std::string> faces) {
     stbi_set_flip_vertically_on_load(false);
-    unsigned int textureID;
-    glGenTextures(1, &textureID);
-    glBindTexture(GL_TEXTURE_CUBE_MAP, textureID);
+    glGenTextures(1, &TextureID);
+    glBindTexture(GL_TEXTURE_CUBE_MAP, TextureID);
 
     int width, height, nrChannels;
     for (unsigned int i = 0; i < faces.size(); ++i) {
