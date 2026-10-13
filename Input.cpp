@@ -73,3 +73,19 @@ void InputManager::exposure_m(float &exp) {
     exp -= 0.01f;
   }
 }
+
+void InputManager::changemode(int &mode) {
+
+  static bool wasPressed = false;
+  bool isPressed = glfwGetKey(window, GLFW_KEY_M) == GLFW_PRESS;
+  if (isPressed && !wasPressed) {
+    if (mode == 1) {
+      mode = 0;
+    } else {
+      if (mode == 0) {
+        mode = 1;
+      }
+    }
+    wasPressed = isPressed;
+  }
+}

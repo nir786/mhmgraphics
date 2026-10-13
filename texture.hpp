@@ -46,7 +46,14 @@ public:
 
 class textureManager {
 public:
-  textureManager() { LoadDefault(BG_TEX_DEFAULT, BF_DEFAULT); }
+  textureManager() {
+    LoadDefault(BG_TEX_DEFAULT, BF_DEFAULT);
+    LoadDefault(BG_TEX_WHITE, BF_WHITE);
+    LoadDefault(BG_TEX_BLACK, BF_BLACK);
+    LoadDefault(BG_TEX_GRAY, BF_GRAY);
+    LoadDefault(BG_TEX_MAGENTA, BF_MAGENTA);
+    LoadDefault(BG_TEX_RED, BF_RED);
+  }
 
   std::unordered_map<std::string, Texture> map;
   void LoadDefault(const Color &color, const char *name);
@@ -55,6 +62,7 @@ public:
     auto it = map.find(std::string(key));
     if (it != map.end()) {
       return it->second;
+
     } else {
       auto it = map.find(BF_DEFAULT);
       return it->second;
