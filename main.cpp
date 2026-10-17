@@ -44,6 +44,7 @@
 #include <cstring>
 #include <iostream>
 #include <math.h>
+#include <memory>
 #include <string>
 #include <vector>
 ////
@@ -172,9 +173,9 @@ void drawLight(Object &obj, Shader &csh, glm::mat4 &projection, glm::mat4 &view,
   csh.setVec3(aDiffuse, adiffuse);
   csh.setVec3(aSpecular, aspecular);
   csh.setFloat(aShine.c_str(), sshininess);
-  csh.setMat4(aProjection, projection);
-  csh.setMat4(aView, view);
-  csh.setMat4(aModel, mmodel);
+  csh.setMat4(aProjection.c_str(), projection);
+  csh.setMat4(aView.c_str(), view);
+  csh.setMat4(aModel.c_str(), mmodel);
   csh.setInt("lightCount", count);
   csh.setInt("TEXTURE0", 0);
   csh.setInt("ignore", 1);
@@ -255,15 +256,41 @@ void drawCube(Object &obj, Shader &csh, glm::mat4 &view, glm::mat4 &projection,
   csh.setVec3(aDiffuse, diffuse);
   csh.setVec3(aSpecular, specular);
   csh.setFloat(aShine.c_str(), shininess);
-  csh.setMat4(aProjection, projection);
-  csh.setMat4(lightspacematrixloc, lightSpaceMatrix);
-  csh.setMat4(aView, view);
-  csh.setMat4(aModel, model);
+  csh.setMat4(aProjection.c_str(), projection);
+  csh.setMat4(lightspacematrixloc.c_str(), lightSpaceMatrix);
+  csh.setMat4(aView.c_str(), view);
+  csh.setMat4(aModel.c_str(), model);
   csh.setInt("lightCount", size);
   csh.setInt("TEXTURE0", 0);
   csh.setInt("shadowMap", 1);
+  csh.setInt("shadowCubeMap", 2);
 
   csh.setInt("ignore", 0);
+  glDrawArrays(GL_TRIANGLES, 0,
+               obj.getComponent<Components::Mesh>().mesh.verts_normals.size() /
+                   8);
+}
+void drawCube_depthPoint(Object &obj, Shader &pointShadow,
+                         std::vector<glm::mat4> &shadowMatrices) {
+
+  auto &transform = obj.getComponent<Components::Transform>();
+
+  glActiveTexture(GL_TEXTURE0);
+  glBindTexture(GL_TEXTURE_2D,
+                obj.getComponent<Components::Tex>().tex.textureID);
+  glm::mat4 model(1.0f);
+  model = glm::translate(model, transform.Position);
+  model *= glm::mat4_cast(glm::quat(glm::radians(transform.Rotation)));
+  model = glm::scale(model, transform.Scale);
+  glBindVertexArray(obj.getComponent<Components::Mesh>().mesh.VAO);
+  pointShadow.setMat4("model", model);
+  pointShadow.setMat4("shadowMatrices[0]", shadowMatrices[0]);
+  pointShadow.setMat4("shadowMatrices[1]", shadowMatrices[1]);
+  pointShadow.setMat4("shadowMatrices[2]", shadowMatrices[2]);
+  pointShadow.setMat4("shadowMatrices[3]", shadowMatrices[3]);
+  pointShadow.setMat4("shadowMatrices[4]", shadowMatrices[4]);
+  pointShadow.setMat4("shadowMatrices[5]", shadowMatrices[5]);
+
   glDrawArrays(GL_TRIANGLES, 0,
                obj.getComponent<Components::Mesh>().mesh.verts_normals.size() /
                    8);
@@ -288,8 +315,8 @@ void drawCube_depth(Object &obj, Shader &csh, glm::mat4 &view,
 
   //  csh.setVec3(aLightLoc, static_light);
 
-  csh.setMat4(aProjection, projection);
-  csh.setMat4(aModel, model);
+  csh.setMat4(aProjection.c_str(), projection);
+  csh.setMat4(aModel.c_str(), model);
   glDrawArrays(GL_TRIANGLES, 0,
                obj.getComponent<Components::Mesh>().mesh.verts_normals.size() /
                    8);
@@ -305,7 +332,8 @@ __CAMERADUMPTEMP renderScene_1(Camera &c, glm::vec3 &F, glm::vec3 &U,
                                Object &cube_3, Object &cube_4, Object &cube_5,
                                Object &LightSource_1, Object &LightSource_2,
                                Shader &skyboxSh, Object &skybox,
-                               glm::mat4 &lightSpaceMatrix, GLuint shadowMap) {
+                               glm::mat4 &lightSpaceMatrix, GLuint shadowMap,
+                               GLuint depthCubeMap) {
   std::string aAlpha = "aAlpha";
   std::string aTexture1 = "Texture1";
   std::string aTexture2 = "Texture2";
@@ -352,6 +380,8 @@ __CAMERADUMPTEMP renderScene_1(Camera &c, glm::vec3 &F, glm::vec3 &U,
                 plane.getComponent<Components::Tex>().tex.textureID);
   glActiveTexture(GL_TEXTURE1);
   glBindTexture(GL_TEXTURE_2D, shadowMap);
+  glActiveTexture(GL_TEXTURE2);
+  glBindTexture(GL_TEXTURE_CUBE_MAP, depthCubeMap);
   glm::mat4 model(1.0f);
   model = glm::translate(model, transform.Position);
   model *= glm::mat4_cast(glm::quat(glm::radians(transform.Rotation)));
@@ -367,13 +397,14 @@ __CAMERADUMPTEMP renderScene_1(Camera &c, glm::vec3 &F, glm::vec3 &U,
   csh.setVec3(aDiffuse, diffuse);
   csh.setVec3(aSpecular, specular);
   csh.setFloat(aShine.c_str(), shininess);
-  csh.setMat4(aProjection, projection);
-  csh.setMat4(lightSpaceMatrixloc, lightSpaceMatrix);
-  csh.setMat4(aView, view);
-  csh.setMat4(aModel, model);
+  csh.setMat4(aProjection.c_str(), projection);
+  csh.setMat4(lightSpaceMatrixloc.c_str(), lightSpaceMatrix);
+  csh.setMat4(aView.c_str(), view);
+  csh.setMat4(aModel.c_str(), model);
   csh.setInt("lightCount", size);
   csh.setInt("TEXTURE0", 0);
   csh.setInt("shadowMap", 1);
+  csh.setInt("shadowCubeMap", 2);
 
   csh.setInt("ignore", 0);
   glDrawArrays(
@@ -410,13 +441,14 @@ __CAMERADUMPTEMP renderScene_1(Camera &c, glm::vec3 &F, glm::vec3 &U,
   csh.setVec3(aDiffuse, adiffuse);
   csh.setVec3(aSpecular, aspecular);
   csh.setFloat(aShine.c_str(), sshininess);
-  csh.setMat4(aProjection, projection);
-  csh.setMat4(lightSpaceMatrixloc, lightSpaceMatrix);
-  csh.setMat4(aView, view);
-  csh.setMat4(aModel, mmodel);
+  csh.setMat4(aProjection.c_str(), projection);
+  csh.setMat4(lightSpaceMatrixloc.c_str(), lightSpaceMatrix);
+  csh.setMat4(aView.c_str(), view);
+  csh.setMat4(aModel.c_str(), mmodel);
   csh.setInt("lightCount", size);
   csh.setInt("TEXTURE0", 0);
   csh.setInt("shadowMap", 1);
+  csh.setInt("shadowCubeMap", 2);
   csh.setInt("ignore", 1);
 
   glDrawArrays(
@@ -449,6 +481,37 @@ __CAMERADUMPTEMP renderScene_1(Camera &c, glm::vec3 &F, glm::vec3 &U,
   /////////////////////////////////////////////////////////////////////////////////////////////////
   return {view, projection};
 }
+void renderScene_pointLight(std::vector<std::unique_ptr<Object>> &objs,
+                            Shader &pointShadow,
+                            std::vector<glm::mat4> &shadowMatrices) {
+  auto &transform = objs[0]->getComponent<Components::Transform>();
+
+  glActiveTexture(GL_TEXTURE0);
+  glBindTexture(GL_TEXTURE_2D,
+                objs[0]->getComponent<Components::Tex>().tex.textureID);
+  glm::mat4 model(1.0f);
+  model = glm::translate(model, transform.Position);
+  model *= glm::mat4_cast(glm::quat(glm::radians(transform.Rotation)));
+  model = glm::scale(model, transform.Scale);
+  glBindVertexArray(objs[0]->getComponent<Components::Mesh>().mesh.VAO);
+
+  // csh.setMat4(aProjection, lightSpaceMatrix);
+  pointShadow.setMat4("model", model);
+  pointShadow.setMat4("shadowMatrices[0]", shadowMatrices[0]);
+  pointShadow.setMat4("shadowMatrices[1]", shadowMatrices[1]);
+  pointShadow.setMat4("shadowMatrices[2]", shadowMatrices[2]);
+  pointShadow.setMat4("shadowMatrices[3]", shadowMatrices[3]);
+  pointShadow.setMat4("shadowMatrices[4]", shadowMatrices[4]);
+  pointShadow.setMat4("shadowMatrices[5]", shadowMatrices[5]);
+
+  glDrawArrays(
+      GL_TRIANGLES, 0,
+      objs[0]->getComponent<Components::Mesh>().mesh.verts_normals.size() / 8);
+
+  for (int i = 1; i < objs.size(); ++i)
+    drawCube_depthPoint(*objs[i], pointShadow, shadowMatrices);
+}
+
 glm::mat4 renderScene_2(Camera &c, glm::vec3 &F, glm::vec3 &U, glm::vec3 &P,
                         Shader &csh, Object &plane, int size, Object &cube_1,
                         Object &cube_2, Object &cube_3, Object &cube_4,
@@ -492,8 +555,8 @@ glm::mat4 renderScene_2(Camera &c, glm::vec3 &F, glm::vec3 &U, glm::vec3 &P,
   model = glm::scale(model, transform.Scale);
   glBindVertexArray(plane.getComponent<Components::Mesh>().mesh.VAO);
 
-  csh.setMat4(aProjection, lightSpaceMatrix);
-  csh.setMat4(aModel, model);
+  csh.setMat4(aProjection.c_str(), lightSpaceMatrix);
+  csh.setMat4(aModel.c_str(), model);
 
   glDrawArrays(
       GL_TRIANGLES, 0,
@@ -516,26 +579,35 @@ int main() {
   manager.LoadDefault(BG_TEX_GRAY, BF_GRAY);
 
   ////////////////////////////////////////test mesh system/////////////////
-  Object plane{"plane"};
+  std::unique_ptr<Object> plane = std::make_unique<Object>("plane");
   MeshData plane_m = Importer::LoadPrimitive(Importer::Cube);
-  plane.addComponenet<Components::Mesh>(plane_m);
+  plane->addComponenet<Components::Mesh>(plane_m);
   glm::vec3 x = {0.0f, 0.0f, 0.0f};
   glm::vec3 y = {0.0f, 0.0f, 0.0f};
   glm::vec3 z = {50.0f, 1.0f, 50.0f};
-  plane.addComponenet<Components::Transform>(x, y, z);
-  plane.addComponenet<Components::Tex>(manager.getTexture(BF_GRAY));
+  plane->addComponenet<Components::Transform>(x, y, z);
+  plane->addComponenet<Components::Tex>(manager.getTexture(BF_GRAY));
   /////////////////////////cube factory////////////////////////////////////////
 
+  std::vector<std::unique_ptr<Object>> objectBuffer;
+  // Keep the shadow-test cubes below both lights and near the point light.
   std::unique_ptr<Object> cube_1 =
-      preperCube(-15.0f, 10.0f, -15.0f, manager, plane_m);
+      preperCube(-4.0f, 9.0f, -6.0f, manager, plane_m);
   std::unique_ptr<Object> cube_2 =
-      preperCube(15.0f, 13.0f, -15.0f, manager, plane_m);
+      preperCube(10.0f, 9.0f, -6.0f, manager, plane_m);
   std::unique_ptr<Object> cube_3 =
-      preperCube(-15.0f, 15.0f, 15.0f, manager, plane_m);
+      preperCube(-4.0f, 9.0f, 7.0f, manager, plane_m);
   std::unique_ptr<Object> cube_4 =
-      preperCube(15.0f, 10.0f, 15.0f, manager, plane_m);
+      preperCube(10.0f, 9.0f, 7.0f, manager, plane_m);
   std::unique_ptr<Object> cube_5 =
-      preperCube(0.0f, 24.0f, 0.0f, manager, plane_m);
+      preperCube(3.0f, 10.0f, 0.0f, manager, plane_m);
+
+  objectBuffer.push_back(std::move(plane));
+  objectBuffer.push_back(std::move(cube_1));
+  objectBuffer.push_back(std::move(cube_2));
+  objectBuffer.push_back(std::move(cube_3));
+  objectBuffer.push_back(std::move(cube_4));
+  objectBuffer.push_back(std::move(cube_5));
   //////////////////////////////////////////////////////////////////////////
   Object LightSource_1 = Object("lightsource sphere");
   MeshData LightSource_M = Importer::LoadPrimitive(Importer::Cube);
@@ -564,7 +636,7 @@ int main() {
                                                      Light_S_2);
 
   LightSource_2.addComponenet<Components::Light>(
-      true, Components::Point, 10.00f, glm::vec3(1.0f, 0.1f, 0.5f),
+      true, Components::Point, 5.00f, glm::vec3(1.0f, 0.1f, 0.5f),
       glm::vec3(0.0f, 0.0f, 0.0f), glm::cos(glm::radians(12.5f)));
   LightSource_2.addComponenet<Components::Tex>(manager.getTexture(BF_WHITE));
   ////////////////////////////////////////////////////////////////////////////////
@@ -587,7 +659,13 @@ int main() {
   Shader hdrShader("hdrShader.frag", "hdrShader.vert");
   Shader skyboxSh = Shader("skybox.frag", "skybox.vert");
   Shader shadowMapper("shadowMapper.frag", "shadowMapper.vert");
+  Shader pointShadow("Shaders/pointShaders/pointShader.frag",
+                     "Shaders/pointShaders/pointShader.vert",
+                     "Shaders/pointShaders/pointShaders.geom");
 
+  Shader lightVisualizer("LightVisualizer.vert", "LightVisualizer.geom",
+                         "LightVisualizer.frag");
+  // Shaders/pointShaders
   std::string aAlpha = "aAlpha";
   std::string aTexture1 = "Texture1";
   std::string aTexture2 = "Texture2";
@@ -656,10 +734,10 @@ int main() {
 
   GLuint hdrVAO;
   glGenVertexArrays(1, &hdrVAO);
-  ////////////////////////shadowmapping/////////////////////////////////////////////////////
+  ////////////////////////shadowmapping
+  /// spotlight/////////////////////////////////////////////////////
   GLuint depthMapFBO;
   glGenFramebuffers(1, &depthMapFBO);
-
   GLuint DepthMapTexture;
   glGenTextures(1, &DepthMapTexture);
   glBindTexture(GL_TEXTURE_2D, DepthMapTexture);
@@ -681,7 +759,33 @@ int main() {
   glReadBuffer(GL_NONE);
   glBindFramebuffer(GL_FRAMEBUFFER, 0);
 
-  ///////////////////////////////////////////////////////////////////////////////////////////////////
+  /////////////////////////////////////shadowmapping point
+  /// light/////////////////////////////////////////
+  GLuint lightVisualizerVAO;
+  glGenVertexArrays(1, &lightVisualizerVAO);
+
+  GLuint pointLightFBO;
+  glGenFramebuffers(1, &pointLightFBO);
+  unsigned int depthCubeMap;
+  glGenTextures(1, &depthCubeMap);
+  glBindTexture(GL_TEXTURE_CUBE_MAP, depthCubeMap);
+  for (unsigned int i = 0; i < 6; i++) {
+    glTexImage2D(GL_TEXTURE_CUBE_MAP_POSITIVE_X + i, 0, GL_DEPTH_COMPONENT,
+                 _width, _height, 0, GL_DEPTH_COMPONENT, GL_FLOAT, NULL);
+
+    glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+    glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+
+    glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+    glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+    glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_R, GL_CLAMP_TO_EDGE);
+  }
+  glBindFramebuffer(GL_FRAMEBUFFER, pointLightFBO);
+  glFramebufferTexture(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, depthCubeMap, 0);
+  glDrawBuffer(GL_NONE);
+  glReadBuffer(GL_NONE);
+  glBindFramebuffer(GL_FRAMEBUFFER, 0);
+  ///
   Camera c;
 
   glm::vec3 F{0.0f, 0.0f, -1.0f};
@@ -707,14 +811,61 @@ int main() {
                     lightmapsdata.data());
     ////////////lightmap- pass////////////////////////////////////////////
     input.movement_early(c, P, F, R, U);
-    moveUpAndDown(LightSource_1, 50.0f);
-    // moveUpAndDown(LightSource_2, 10.0f);
+    //  moveUpAndDown(LightSource_1, 20.0f);
+    moveUpAndDown(LightSource_2, 10.0f);
     //    moveUpAndDown(LightSource_1, 30.0f);
     input.exposure_m(exposure);
     input.changemode(mode);
     ///////////movement- ////////////////////////////////////////////////
     glClearColor(0.2f, 0.2f, 0.2f, 1.0f);
     /////////////////////////////////////////////////////////////////////
+    glBindTexture(GL_TEXTURE_CUBE_MAP, depthCubeMap);
+    for (unsigned int i = 0; i < 6; i++) {
+      glTexImage2D(GL_TEXTURE_CUBE_MAP_POSITIVE_X + i, 0, GL_DEPTH_COMPONENT,
+                   1024.0f, 1024.0f, 0, GL_DEPTH_COMPONENT, GL_FLOAT, NULL);
+    }
+    float near_plane = 1.0f;
+    float far_plane = 25.0f;
+    glm::mat4 shadowProjection =
+        glm::perspective(glm::radians(90.0f), 1.0f, near_plane, far_plane);
+    auto &l2_transform = LightSource_2.getComponent<Components::Transform>();
+    // clang-format off
+    std::vector<glm::mat4> shadowTransforms{
+	shadowProjection * glm::lookAt(l2_transform.Position,l2_transform.Position + glm::vec3(1.0f, 0.0f, 0.0f),
+			    glm::vec3(0.0f, -1.0f, 0.0f)),
+  	shadowProjection * glm::lookAt(l2_transform.Position,l2_transform.Position + glm::vec3(-1.0f, 0.0f, 0.0f),
+			    glm::vec3(0.0f, -1.0f, 0.0f)),
+	shadowProjection * glm::lookAt(l2_transform.Position,l2_transform.Position + glm::vec3(0.0f, 1.0f, 0.0f),
+			    glm::vec3(0.0f, 0.0f, 1.0f)),
+	shadowProjection * glm::lookAt(l2_transform.Position,l2_transform.Position + glm::vec3(0.0f, -1.0f, 0.0f),
+			    glm::vec3(0.0f, 0.0f, -1.0f)),
+	shadowProjection * glm::lookAt(l2_transform.Position,l2_transform.Position + glm::vec3(0.0f, 0.0f, 1.0f),
+			    glm::vec3(0.0f, -1.0f, 0.0f)),
+	shadowProjection * glm::lookAt(l2_transform.Position,l2_transform.Position + glm::vec3(0.0f, 0.0f, -1.0f),
+			    glm::vec3(0.0f, -1.0f, 0.0f)),
+    };
+
+    // clang-format on
+    glViewport(0, 0, 1024.0f, 1024.0f);
+    glBindFramebuffer(GL_FRAMEBUFFER, pointLightFBO);
+
+    glEnable(GL_DEPTH_TEST);
+    glEnable(GL_CULL_FACE);
+    glCullFace(GL_FRONT);
+    glDepthFunc(GL_LESS);
+    glClear(GL_DEPTH_BUFFER_BIT);
+    pointShadow.use();
+    std::string aLightPos = "lightPos";
+    pointShadow.setFloat("far_plane", far_plane);
+    pointShadow.setVec3(aLightPos, l2_transform.Position);
+
+    renderScene_pointLight(objectBuffer, pointShadow, shadowTransforms);
+
+    glCullFace(GL_BACK);
+
+    glDepthFunc(GL_LEQUAL);
+
+    ///////////////////////////////////////////////////////////////////////
     glViewport(0, 0, _width, _height);
     glBindTexture(GL_TEXTURE_2D, DepthMapTexture);
     glTexImage2D(GL_TEXTURE_2D, 0, GL_DEPTH_COMPONENT, _width, _height, 0,
@@ -727,10 +878,10 @@ int main() {
     glCullFace(GL_FRONT);
     glDepthFunc(GL_LESS);
     glClear(GL_DEPTH_BUFFER_BIT);
-    glm::mat4 lightSpaceMatrix =
-        renderScene_2(c, F, U, P, shadowMapper, plane, objectbuff.size(),
-                      *cube_1, *cube_2, *cube_3, *cube_4, *cube_5,
-                      LightSource_1, LightSource_2, skyboxSh, skybox);
+    glm::mat4 lightSpaceMatrix = renderScene_2(
+        c, F, U, P, shadowMapper, *objectBuffer[0], objectbuff.size(),
+        *objectBuffer[1], *objectBuffer[2], *objectBuffer[3], *objectBuffer[4],
+        *objectBuffer[5], LightSource_1, LightSource_2, skyboxSh, skybox);
 
     glCullFace(GL_BACK);
 
@@ -747,10 +898,18 @@ int main() {
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
     //////////////////////////////////////////////////////////////////////////
     __CAMERADUMPTEMP viewdata = renderScene_1(
-        c, F, U, P, csh, plane, objectbuff.size(), *cube_1, *cube_2, *cube_3,
-        *cube_4, *cube_5, LightSource_1, LightSource_2, skyboxSh, skybox,
-        lightSpaceMatrix, DepthMapTexture);
+        c, F, U, P, csh, *objectBuffer[0], objectbuff.size(), *objectBuffer[1],
+        *objectBuffer[2], *objectBuffer[3], *objectBuffer[4], *objectBuffer[5],
+        LightSource_1, LightSource_2, skyboxSh, skybox, lightSpaceMatrix,
+        DepthMapTexture, depthCubeMap);
     /////////////////////////////////////////////////////////////////////////////////////////////////
+
+    glBindVertexArray(lightVisualizerVAO);
+    lightVisualizer.use();
+    lightVisualizer.setInt("size", objectbuff.size());
+    lightVisualizer.setMat4("projection", viewdata.projection);
+    lightVisualizer.setMat4("view", viewdata.view);
+    glDrawArrays(GL_POINTS, 0, 8);
 
     glDisable(GL_DEPTH_TEST);
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
@@ -788,8 +947,8 @@ int main() {
     glBindTexture(GL_TEXTURE_CUBE_MAP, cubemap.TextureID);
 
     skyboxSh.setInt("skybox", 0);
-    skyboxSh.setMat4(aProjection, viewdata.projection);
-    skyboxSh.setMat4(aView, SkyView);
+    skyboxSh.setMat4(aProjection.c_str(), viewdata.projection);
+    skyboxSh.setMat4(aView.c_str(), SkyView);
 
     glDrawArrays(GL_TRIANGLES, 0, 36);
 
